@@ -14,7 +14,7 @@ module Searchtastic
     #     search_fields %w(name email bio)
     #   end
     #
-    def searchable_by fields
+    def searchable_by *fields
         self.fields = process_fields(fields)
     end
 
@@ -53,7 +53,7 @@ module Searchtastic
     #     process_fields(fields) => %w(users.name users.email)
     #
     def process_fields(fields)
-        fields.map { |field| field.include?('.') ? field : "#{self.table_name}.#{field}" }
+        fields.map { |field| field.to_s.include?('.') ? field.to_s : "#{self.table_name}.#{field}" }
     end
 
     # Before adding the where clauses, we have to make sure the right tables are joined
