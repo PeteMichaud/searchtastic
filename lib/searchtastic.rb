@@ -2,8 +2,6 @@ require 'searchtastic/version'
 
 module Searchtastic
   module ActiveRecord
-    module ClassMethods
-
       def fields
         @fields || []
       end
@@ -69,7 +67,6 @@ module Searchtastic
         end
       end
 
-    end #ClassMethods
   end #ActiveRecord
 end #Searchtastic
 
