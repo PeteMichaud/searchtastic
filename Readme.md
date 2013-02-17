@@ -1,17 +1,49 @@
 # Searchtastic
 
-Searchtastic enables searching models automatically based on any field, including associated fields not even on the
-model itself.
+Searchtastic makes it possible to filter any collection of ActiveRecord models automatically based on any field,
+including associated fields not even on the model itself. It's kind of awesome.
 
-## Basic Usage
+# Installation
+
+In Rails 3, add this to your Gemfile and run the `bundle` command.
 
 ```ruby
-
+gem 'searchtastic'
 ```
 
-## Advanced Usage
+# Basic Usage
 
+### 1. Set up Your Models
 
+Make a model searchable by providing an array of attributes to search on:
+
+```ruby
+class User < ActiveRecord::Base
+    attr_accessible :name, :bio
+    has_one :club, class_name: Organization
+    searchable_by %w(name bio club.name)
+end
+```
+
+### 2. Perform the Search
+
+Searching works anywhere, but normally you'll search from within a controller action:
+
+```ruby
+...
+def index
+    #@filter == "test"
+    @users = User.search(@filter)
+    ...
+end
+...
+```
+
+# To Do
+
+*   Search on Dates -- there's no good way to do this right now
+*   Search on combined fields, e.g. first_name + last_name
+*   Search on all accessible attributes shorthand
 
 # Contributors
 
