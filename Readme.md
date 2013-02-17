@@ -21,7 +21,7 @@ Make a model searchable by providing an array of attributes to search on:
 class User < ActiveRecord::Base
     attr_accessible :name, :bio
     has_one :club, class_name: Organization
-    searchable_by %w(name bio club.name)
+    searchable_by :name, :bio, :'club.name'
 end
 ```
 
@@ -34,6 +34,18 @@ Searching works anywhere, but normally you'll search from within a controller ac
 def index
     #@filter == "test"
     @users = User.search(@filter)
+    ...
+end
+...
+```
+
+Note that this works for any ActiveRelation so this will work as well:
+
+```ruby
+...
+def index
+    #@filter == "pete"
+    @users = @foo.users.search(@filter)
     ...
 end
 ...
