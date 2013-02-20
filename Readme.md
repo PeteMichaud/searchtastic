@@ -53,9 +53,11 @@ end
 
 # To Do
 
-*   Search on Dates -- there's no good way to do this right now
 *   Search on combined fields, e.g. first_name + last_name
 *   Search on all accessible attributes shorthand
+*   Search on Date Ranges
+*   Search against has_many :through associations
+*   Search against HABTM associations
 
 # Contributors
 
