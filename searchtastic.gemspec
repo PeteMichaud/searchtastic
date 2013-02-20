@@ -17,7 +17,7 @@ Gem::Specification.new do |s|
   s.require_paths = ["config", "lib"]
 
   #s.add_dependency 'activesupport', '~> 3.2'
-  #s.add_dependency 'actionpack', '~> 3.2'
+  s.add_dependency 'chronic', '~> 0.9'
 
   s.add_development_dependency 'rake', '~> 0.9.2'
   s.add_development_dependency 'rspec', '~> 2.10'
