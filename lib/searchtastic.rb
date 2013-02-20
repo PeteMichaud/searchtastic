@@ -1,4 +1,5 @@
 require 'searchtastic/version'
+require 'chronic'
 
 # This module is automatically included in all ActiveRecords
 module Searchtastic
@@ -24,8 +25,10 @@ module Searchtastic
     #   @filtered_models = User.search(filter)
     #
     def search filter
-      if filter && self.fields.count
-        handle_joins(self.fields).where(build_filter(filter, self.fields))
+      if filter && is_searchable?
+        filter = [filter, Chronic.parse(filter).strftime("%Y-%m-%d")] rescue filter
+        handle_joins(self.fields, scoped.select("DISTINCT(`#{self.table_name}`.`id`), `#{self.table_name}`.*"))
+        .where(build_filter(filter, self.fields))
       else
         scoped
       end
@@ -36,7 +39,7 @@ module Searchtastic
     #     User.search(@filter) if User.is_searchable?
     #
     def is_searchable?
-      self.fields.count < 0
+      self.fields.count > 0
     end
 
     private
@@ -59,41 +62,64 @@ module Searchtastic
     # Before adding the where clauses, we have to make sure the right tables are joined
     # into the query. We use .includes() instead of .joins() so we can get an OUTER JOIN
     #
-    def handle_joins fields
-      ret = scoped
-      fields.each do |field|
-        assoc, table = field_table(field)
-        ret = ret.includes(assoc) unless table == self.table_name.to_sym
+    def handle_joins fields, select = nil
+      ret = select || scoped
+      fields.each do |qualified_field|
+        assoc, foreign_table, field = parse_field(qualified_field)
+        ret = ret.joins(join_string(assoc, foreign_table)) if assoc
       end
       ret
+    end
+
+    def join_string(assoc, foreign_table)
+      reflection = self.reflect_on_association(assoc.to_sym)
+      case reflection.macro
+        when :belongs_to
+          "LEFT OUTER JOIN `#{foreign_table}` on `#{foreign_table}`.`id` = `#{self.table_name}`.`#{assoc.singularize}_id`"
+        when :has_one
+          if reflection.options.has_key?(:through)
+            "LEFT OUTER JOIN `#{reflection.options[:through].pluralize}` on `#{reflection.options[:through].pluralize}`.`id` = `#{self.table_name}`.`#{reflection.options[:through]}_id` "+
+            "LEFT OUTER JOIN `#{foreign_table}` on `#{foreign_table}`.`id` = `#{reflection.options[:through].pluralize}`.`#{assoc.singularize}_id`"
+          else
+            "LEFT OUTER JOIN `#{foreign_table}` on `#{foreign_table}`.`id` = `#{self.table_name}`.`#{assoc.singularize}_id`"
+          end
+        when :has_many
+          "LEFT OUTER JOIN `#{foreign_table}` on `#{self.table_name}`.`id` = `#{foreign_table}`.`#{self.table_name.singularize}_id`"
+        #when :has_and_belongs_to_many
+        else
+          raise "Searching against HABTM associations is not supported"
+      end
     end
 
     # Get table name from association name
     #
     #   class User < ActiveRecord::Base
     #     belongs_to :company, class_name: Organization
-    #     searchable_by %w(name, email, company.name)
+    #     searchable_by :name, :email, :'company.name'
     #   end
     #
-    #   field_table('company.name') => [:companies, :organizations]
+    #   parse_field('company.name') => ['companies', 'organizations', 'name']
     #
-    def field_table(field)
-      if field.include? '.'
-        assoc = field.split('.').first
+    def parse_field(qualified_field)
+      if qualified_field.include? '.'
+        assoc, field = qualified_field.split('.')
         if assoc != self.table_name
-          return assoc.to_sym, self.reflect_on_association(assoc.to_sym).table_name.to_sym
+          return assoc, self.reflect_on_association(assoc.to_sym).table_name, field
         end
       end
 
-      return nil, self.table_name
+      return nil, self.table_name, field
 
     end
 
     # Build the filter for the .where() clause in the search method
     #
-    def build_filter filter, fields
-      where = [associations_to_tables(fields).map { |f| "#{f} like ?" }.join(" || ")]
-      fields.count.times { |n| where << "%#{filter}%" }
+    def build_filter filters, fields
+      filters = [filters] unless filters.is_a? Array
+      where = [Array.new(filters.count, associations_to_tables(fields).map { |f| "#{f} LIKE ?" }.join(" || ")).join(" || ")]
+      filters.each do |filter|
+        fields.count.times { |n| where << "%#{filter}%" }
+      end
       where
     end
 
@@ -102,7 +128,7 @@ module Searchtastic
     def associations_to_tables fields
       fields.map do |field|
         _, column = field.split('.')
-        "#{field_table(field)[1]}.#{column}"
+        "#{parse_field(field)[1]}.#{column}"
       end
     end
 
